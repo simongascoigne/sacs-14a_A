@@ -13,19 +13,10 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: false
 
 jobs:
   update-and-deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -43,6 +34,13 @@ jobs:
         continue-on-error: true   # if the ISA site is down, keep the last good data
         run: node scripts/update.mjs
 
+      # Record when this check ran so the page can show "Last checked" via Cloudflare
+      - name: Record check time
+        run: |
+          OK=$([ "${{ steps.update.outcome }}" = "success" ] && echo true || echo false)
+          echo "{\"at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\", \"ok\": $OK}" > site/checked.json
+          cat site/checked.json
+
       - name: Save new data to the repository
         id: save
         if: steps.update.outcome == 'success'
@@ -51,28 +49,11 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # ignore the "updated" date line so an unchanged draw doesn't count as a change
           if git diff --quiet -I '"updated"' -- site/data.json; then
-            git checkout -- site/data.json
+            git checkout -- site/data.json site/checked.json
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
-            git add site/data.json
-            git commit -m "Update 14A data"
+            git add site/data.json site/checked.json
+            git commit -m "Update 14A data and check time"
             git push
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
-
-      # Record when this check ran, so the page can show "Last checked".
-      # Not saved to the repository, only published with the site.
-      - name: Record check time
-        run: |
-          OK=$([ "${{ steps.update.outcome }}" = "success" ] && echo true || echo false)
-          echo "{\"at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\", \"ok\": $OK}" > site/checked.json
-          cat site/checked.json
-
-      - uses: actions/configure-pages@v5
-
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
-
-      - id: deployment
-        uses: actions/deploy-pages@v4
