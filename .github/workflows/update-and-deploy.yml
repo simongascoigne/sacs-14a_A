@@ -48,19 +48,17 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           
-          # Always stage the new check time
-          git add site/checked.json
+          # Force-stage the check time to override .gitignore
+          git add -f site/checked.json
 
           # Check if data.json actually changed (ignoring the "updated" timestamp line)
           if git diff --quiet -I '"updated"' -- site/data.json; then
-            # data didn't change, revert data.json so it isn't modified
             git checkout -- site/data.json
           else
-            # data did change, stage data.json as well
             git add site/data.json
           fi
 
-          # If there are any staged changes (checked.json always, plus data.json if it changed), commit and push
+          # Commit and push staged changes
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
