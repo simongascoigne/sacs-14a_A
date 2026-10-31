@@ -1,5 +1,16 @@
 name: Update 14A data and publish site
 
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: update-14a
+  cancel-in-progress: false
+
+jobs:
+  update-and-deploy:
+    runs-on: ubuntu-latest
+
 # Times are UTC. Sydney daylight saving (Oct–Apr) is UTC+11.
 on:
   push:
